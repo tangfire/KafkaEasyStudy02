@@ -10,13 +10,24 @@ spring:
 #      value-serializer: org.springframework.kafka.support.serializer.ToStringSerializer
 #      key-serializer: org.apache.kafka.common.serialization.StringSerializer
 #      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-#    consumer:
-#      auto-offset-reset: earliest
-#      auto-offset-reset: latest
+    consumer:
+#      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+          auto-offset-reset: earliest
+          max-poll-records: 20
+    #      auto-offset-reset: latest
+    listener:
+      # 开启消息监听的手动确认模式
+      ack-mode: manual
+      type: batch
 
 
     # 配置模版默认的主题topic名称
 #    template:
 #      default-topic: default-topic
 
+kafka:
+  topic:
+    name: helloTopic
+  consumer:
+    group: helloGroup
 

@@ -16,4 +16,19 @@ class KafkaEasyStudy02ApplicationTests {
         eventProducer.sendEvent();
     }
 
+    @Test
+    void test02() {
+        eventProducer.sendEvent2();
+    }
+
+    @Test
+    void test03() {
+        eventProducer.sendEvent3();
+    }
+
+    @Test
+    void test04() {
+        eventProducer.sendEvent4();
+    }
+
 }

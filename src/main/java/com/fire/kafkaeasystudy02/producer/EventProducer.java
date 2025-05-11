@@ -1,9 +1,13 @@
 package com.fire.kafkaeasystudy02.producer;
 
 
+import com.fire.kafkaeasystudy02.model.User;
+import com.fire.kafkaeasystudy02.util.JSONUtils;
 import jakarta.annotation.Resource;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
+import java.util.Date;
 
 @Component
 public class EventProducer {
@@ -19,7 +23,28 @@ public class EventProducer {
     }
 
 
+    public void sendEvent2() {
+        User user  = User.builder().id(1209).phone("13345232").birthday(new Date()).build();
+        String userJSON = JSONUtils.toJSON(user);
+        kafkaTemplate.send("helloTopic",userJSON);
+    }
 
+    public void sendEvent3() {
+        for (int i = 0; i < 25; i++) {
+            User user  = User.builder().id(i).phone("13345232"+i).birthday(new Date()).build();
+            String userJSON = JSONUtils.toJSON(user);
+            kafkaTemplate.send("helloTopic","k" + i,userJSON);
+        }
+
+    }
+
+    public void sendEvent4() {
+        for (int i = 0; i < 125; i++) {
+            User user  = User.builder().id(i).phone("13345232"+i).birthday(new Date()).build();
+            String userJSON = JSONUtils.toJSON(user);
+            kafkaTemplate.send("batchTopic","k" + i,userJSON);
+        }
+    }
 
 
 }
