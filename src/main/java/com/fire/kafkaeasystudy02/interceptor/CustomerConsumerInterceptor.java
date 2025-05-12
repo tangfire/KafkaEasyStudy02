@@ -10,7 +10,7 @@ import java.util.Map;
 /**
  * 自定义消费者拦截器
  */
-public class CustomConsumerInterceptor implements ConsumerInterceptor<String,String> {
+public class CustomerConsumerInterceptor implements ConsumerInterceptor<String,String> {
 
     /**
      * 在消费消息之前执行

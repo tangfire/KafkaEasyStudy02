@@ -47,4 +47,35 @@ public class EventProducer {
     }
 
 
+    public void sendEvent5() {
+        User user = User.builder().id(1).phone("13345232").birthday(new Date()).build();
+        String userJSON = JSONUtils.toJSON(user);
+        kafkaTemplate.send("intTopic","k1",userJSON);
+    }
+
+    public void sendEvent6() {
+        User user = User.builder().id(1).phone("13345232").birthday(new Date()).build();
+        String userJSON = JSONUtils.toJSON(user);
+        kafkaTemplate.send("topicA","k1",userJSON);
+    }
+
+    public void sendEvent7() {
+        User user = User.builder().id(1).phone("13345232").birthday(new Date()).build();
+        String userJSON = JSONUtils.toJSON(user);
+        kafkaTemplate.send("myTopic","k1",userJSON);
+    }
+
+    public void sendEvent8() {
+        for (int i = 0; i < 100; i++) {
+            User user = User.builder().id(1028+i).phone("242345235"+i).birthday(new Date()).build();
+            String userJSON = JSONUtils.toJSON(user);
+            kafkaTemplate.send("myTopic","k" + i,userJSON);
+        }
+    }
+
+
+
+
+
+
 }

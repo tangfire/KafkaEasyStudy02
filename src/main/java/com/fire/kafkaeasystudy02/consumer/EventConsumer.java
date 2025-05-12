@@ -10,6 +10,7 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -117,9 +118,44 @@ public class EventConsumer {
     }
 
 
-    @KafkaListener(topics = {"batchTopic"},groupId = "batchGroup")
+//    @KafkaListener(topics = {"batchTopic"},groupId = "batchGroup")
     public void onEvent6(List<ConsumerRecord<String, String>> records) {
         System.out.println("批量消费,records.size()="+records.size()+",recods="+records);
+    }
+
+    @KafkaListener(topics = {"intTopic"},groupId = "intGroup",containerFactory = "ourKafkaListenerContainerFactory")
+    public void onEvent7(ConsumerRecord<String, String> record) {
+        System.out.println("消息消费7 record="+record);
+    }
+
+    @KafkaListener(topics = {"topicA"},groupId = "aGroup")
+    @SendTo(value = "topicB")
+    public String onEvent8(ConsumerRecord<String, String> record) {
+        System.out.println("消息A消费，record" + record);
+        return record.value() + "--forward message";
+    }
+
+
+    @KafkaListener(topics = {"topicB"},groupId = "bGroup")
+    public void onEvent9(ConsumerRecord<String, String> record) {
+        System.out.println("消息B消费，record" + record);
+
+    }
+
+
+//    @KafkaListener(topics = {"myTopic"},groupId = "myGroup")
+    public void onEvent10(ConsumerRecord<String, String> record) {
+        System.out.println("消息消费10，record" + record);
+    }
+
+//    @KafkaListener(topics = {"myTopic"},groupId = "myGroup",concurrency = "3")
+    public void onEvent11(ConsumerRecord<String, String> record) {
+        System.out.println( Thread.currentThread().getId()+ "->消息消费11，record" + record);
+    }
+
+    @KafkaListener(topics = {"myTopic"},groupId = "myGroup",concurrency = "3",containerFactory = "ourKafkaListenerContainerFactory")
+    public void onEvent12(ConsumerRecord<String, String> record) {
+        System.out.println( Thread.currentThread().getId()+ "->消息消费12，record" + record);
     }
 
 

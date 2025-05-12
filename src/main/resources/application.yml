@@ -11,14 +11,17 @@ spring:
 #      key-serializer: org.apache.kafka.common.serialization.StringSerializer
 #      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
-#      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-          auto-offset-reset: earliest
-          max-poll-records: 20
-    #      auto-offset-reset: latest
-    listener:
-      # 开启消息监听的手动确认模式
-      ack-mode: manual
-      type: batch
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+#      auto-offset-reset: earliest
+#      max-poll-records: 20
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+#      auto-offset-reset: latest
+      auto-offset-reset: earliest
+
+#    listener:
+#      # 开启消息监听的手动确认模式
+#      ack-mode: manual
+#      type: batch
 
 
     # 配置模版默认的主题topic名称

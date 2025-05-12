@@ -448,6 +448,9 @@ public void onEvent(List<ConsumerRecord<String, String>> records) {
 
 # 消费消息时的消息拦截
 在消息消费之前，我们可以通过配置拦截器对消息进行拦截，在消息被实际处理之前对其进行一些操作，例如记录日志、修改消息内容或执行一些安全检查等；
+
+![img_02](./assets/img_2.png)
+
 1. 实现kafka的ConsumerInterceptor拦截器接口；
 ```java
 public class CustomConsumerInterceptor implements ConsumerInterceptor<String, String> {
@@ -462,6 +465,182 @@ props.put(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG, CustomConsumerInterceptor.c
 ```java
 @KafkaListener(topics = {"intTopic"}, groupId = "intGroup", containerFactory = "ourKafkaListenerContainerFactory")
 ```
+
+---
+
+
+在Kafka开发中，消息转发是实现业务解耦、跨系统协作的关键技术。以下是基于不同场景的常用实现方式及注意事项：
+
+![img_03](./assets/img_3.png)
+
+---
+
+### **一、消息转发实现方式**
+1. **Spring Kafka的`@SendTo`注解**  
+   通过监听器返回值自动转发消息到指定Topic，适用于单次转发场景。
+   - **实现步骤**：
+      - 在监听方法上添加`@KafkaListener`和`@SendTo("目标Topic")`注解。
+      - 配置`ConcurrentKafkaListenerContainerFactory`的`ReplyTemplate`（需提前定义生产者配置）。
+   - **示例代码**：
+     ```java
+     @KafkaListener(topics = "topic1")
+     @SendTo("topic2")
+     public String forwardMessage(ConsumerRecord<?, ?> record) {
+         return record.value() + "-forward";
+     }
+     ```
+
+2. **`ReplyingKafkaTemplate`请求-响应模式**  
+   适用于需要等待下游系统响应的场景（如订单审核后需要物流系统反馈）。
+   - **核心流程**：
+      - 生产者发送消息时指定回复Topic（通过Headers设置`KafkaHeaders.REPLY_TOPIC`）。
+      - 消费者处理消息后，将结果发送到回复Topic，由`ReplyingKafkaTemplate`异步接收响应。
+   - **优势**：支持超时控制和异步处理，但需注意响应延迟问题。
+
+3. **手动转发（生产者显式调用）**  
+   灵活性高，适用于复杂业务逻辑（如动态选择目标Topic或消息转换）。
+   - **实现要点**：
+      - 在消费者代码中注入`KafkaTemplate`，直接调用`send()`方法。
+      - 可结合消息过滤（如根据消息内容选择转发路径）。
+
+---
+
+### **二、注意事项**
+1. **生产者配置**
+   - 转发场景中，消费者同时作为生产者，需配置序列化方式、ACK机制（如`acks=all`确保可靠性）及重试策略。
+   - **示例配置**（Spring Boot）：
+     ```properties
+     spring.kafka.producer.bootstrap-servers=localhost:9092
+     spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
+     spring.kafka.producer.value-serializer=org.apache.kafka.common.serialization.StringSerializer
+     ```
+
+2. **消息过滤与转换**
+   - 可在转发前对消息内容进行过滤（如丢弃无效数据）或格式转换（如JSON转Avro）。
+   - **过滤示例**（仅转发偶数消息）：
+     ```java
+     @Bean
+     public RecordFilterStrategy<Integer, String> filterStrategy() {
+         return record -> Integer.parseInt(record.value()) % 2 != 0;
+     }
+     ```
+
+3. **分区与负载均衡**
+   - 若目标Topic有多个分区，需指定分区策略（如按Key哈希）或使用默认轮询。
+   - 消费者组需合理分配分区，避免消息处理倾斜。
+
+4. **错误处理与重试**
+   - 手动转发时需捕获`ProducerException`，并实现重试逻辑（如指数退避）。
+   - 使用`@RetryableTopic`（Spring Kafka 2.7+）可自动重试失败的消息。
+
+---
+
+### **三、工具与扩展**
+- **Kafka Magic**：可视化工具支持消息的跨Topic转换和批量转发，适合调试与集成测试。
+- **MirrorMaker 2.0**：用于跨集群消息复制（如灾备场景），支持双向同步和Topic重命名规则。
+
+---
+
+### **总结**
+消息转发在Kafka中的实现需根据业务需求选择合适方案：简单场景用`@SendTo`，需响应反馈时用`ReplyingKafkaTemplate`，复杂逻辑则手动控制。开发时需关注生产者配置、消息过滤及异常处理，必要时借助工具提升效率。
+
+---
+
+Kafka的消费者分区分配策略决定了消费组内各消费者如何分配Topic的分区资源，以实现负载均衡和高可用性。以下是常见的分区策略及其核心机制：
+
+![img_04](./assets/img_4.png)
+
+---
+
+### **一、内置分区策略**
+
+![img_05](./assets/img_5.png)
+
+![img_06](./assets/img_6.png)
+
+![img_07](./assets/img_7.png)
+
+
+1. **RangeAssignor（范围分配策略）**
+    - **机制**：
+        - 按主题逐个处理，对每个主题的分区按序号排序，消费者按名称排序。
+        - 每个主题的分区数除以消费者数，余数部分分配给前几个消费者。
+    - **示例**：  
+      若Topic有10个分区，3个消费者，分配结果为：
+        - Consumer1：0-3（4个分区）
+        - Consumer2：4-6（3个分区）
+        - Consumer3：7-9（3个分区）
+    - **特点**：
+        - 默认策略，适合单主题消费，但多主题时可能导致负载不均（如不同主题分区数差异较大）。
+
+2. **RoundRobinAssignor（轮询分配策略）**
+    - **机制**：
+        - 将所有Topic的分区合并后按哈希值排序，轮询分配给消费者。
+    - **示例**：  
+      Topic1（4分区）和Topic2（4分区）分配给3个消费者：
+        - Consumer1：Topic1-0、Topic2-1、Topic2-3
+        - Consumer2：Topic1-1、Topic2-0
+        - Consumer3：Topic1-2、Topic1-3、Topic2-2
+    - **特点**：
+        - 多主题场景下分配更均匀，但需保证消费者订阅相同的Topic列表。
+
+3. **StickyAssignor（粘性分配策略）**
+    - **机制**：
+        - 优先保留原有分配结果，仅在新增/减少消费者时调整部分分区，减少重平衡影响。
+    - **示例**：  
+      原Consumer1和Consumer2各分配2个分区，新增Consumer3后：
+        - Consumer1和Consumer2各保留1个分区，剩余2个分配给Consumer3。
+    - **特点**：
+        - 减少分区迁移开销，避免因频繁重平衡导致的消费中断。
+
+4. **CooperativeStickyAssignor（协作粘性策略）**
+    - **机制**：
+        - 在Sticky基础上支持增量重平衡（逐步迁移分区），消费者无需暂停消费。
+    - **特点**：
+        - 需Kafka 2.4+版本，适合高可用场景，减少消费停顿时间。
+
+---
+
+### **二、策略选择建议**
+| **场景**               | **推荐策略**               | **原因**                                                                 |
+|------------------------|--------------------------|-------------------------------------------------------------------------|
+| 单主题消费              | RangeAssignor            | 简单高效，分区按范围连续分配。                                       |
+| 多主题消费              | RoundRobinAssignor       | 全局轮询，负载更均衡。                                              |
+| 需减少重平衡影响        | StickyAssignor           | 保留原有分配，降低迁移成本。                                     |
+| 高版本集群（Kafka 2.4+）| CooperativeStickyAssignor| 增量迁移减少中断，支持平滑扩展。                                          |
+| 自定义业务需求          | 自定义策略                | 实现`PartitionAssignor`接口，按业务逻辑分配（如按地域或数据类型）。            |
+
+---
+
+### **三、注意事项**
+1. **分区与消费者数量关系**
+    - 分区数 < 消费者数：部分消费者闲置。
+    - 分区数 > 消费者数：单个消费者可能处理多个分区。
+
+2. **重平衡（Rebalance）触发条件**
+    - 消费者加入/退出、订阅Topic变化、分区数变更。
+
+3. **性能与稳定性**
+    - Sticky策略可减少因频繁重平衡导致的资源浪费。
+    - 避免过多消费者导致频繁重平衡，建议分区数为消费者数的整数倍。
+
+---
+
+### **四、配置示例（Java）**
+```java
+Properties props = new Properties();
+props.put("group.id", "test-group");
+props.put("bootstrap.servers", "localhost:9092");
+// 设置分区策略（支持多个策略，按优先级选择）
+props.put("partition.assignment.strategy", 
+    "org.apache.kafka.clients.consumer.CooperativeStickyAssignor");
+KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
+```
+
+---
+
+通过合理选择分区策略，可以优化消费组的吞吐量、负载均衡及容错能力。具体策略需结合业务场景、Kafka版本及集群规模综合评估。
+
 
 ---
 
