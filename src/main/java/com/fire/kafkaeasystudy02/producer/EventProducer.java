@@ -73,6 +73,14 @@ public class EventProducer {
         }
     }
 
+    public void sendEvent9() {
+        for (int i = 0;i < 2;i++){
+            User user = User.builder().id(1028 + i).phone("1370909090").birthday(new Date()).build();
+            String userJSON = JSONUtils.toJSON(user);
+            kafkaTemplate.send("offsetTopic","k" + i,userJSON);
+        }
+    }
+
 
 
 

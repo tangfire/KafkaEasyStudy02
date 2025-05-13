@@ -644,4 +644,108 @@ KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
 
 ---
 
+# Kafka事件(消息、数据)的存储
+
+
+- kafka的所有事件(消息、数据)都存储在/tmp/kafka-logs目录中，可通过log.dirs=/tmp/kafka-logs配置；
+- Kafka的所有事件(消息、数据)都是以日志文件的方式来保存；
+- Kafka一般都是海量的消息数据，为了避免日志文件过大，日志文件被存放在多个日志目录下，日志目录的命名规则为：<topic_name>-<partition_id>；
+- 比如创建一个名为 firstTopic 的 topic，其中有 3 个 partition，那么在 kafka 的数据目录（/tmp/kafka-log）中就有 3 个目录，firstTopic-0、firstTopic-1、firstTopic-2；
+  - 00000000000000000000.index  消息索引文件
+  - 00000000000000000000.log  消息数据文件
+  - 00000000000000000000.timeindex  消息的时间戳索引文件
+  - 00000000000000000006.snapshot  快照文件，生产者发生故障或重启时能够恢复并继续之前的操作
+  - leader-epoch-checkpoint  记录每个分区当前领导者的epoch以及领导者开始写入消息时的起始偏移量
+  - partition.metadata  存储关于特定分区的元数据（metadata）信息
+- 每次消费一个消息并且提交以后，会保存当前消费到的最近的一个offset；
+- 在kafka中，有一个__consumer_offsets的topic， 消费者消费提交的offset信息会写入到 该topic中，__consumer_offsets保存了每个consumer group某一时刻提交的offset信息，__consumer_offsets默认有50个分区；
+- consumer_group 保存在哪个分区中的计算公式：
+- Math.abs(“groupid”.hashCode())%groupMetadataTopicPartitionCount ; 
+
+## Offset详解
+
+### 1. 生产者Offset
+- 生产者发送一条消息到Kafka的broker的某个topic下某个partition中；
+- Kafka内部会为每条消息分配一个唯一的offset，该offset就是该消息在partition中的位置；
+
+### 2. 消费者Offset
+- 消费者offset是消费者需要知道自己已经读取到哪个位置了，接下来需要从哪个位置开始继续读取消息；
+- 每个消费者组（Consumer Group）中的消费者都会独立地维护自己的offset，当消费者从某个partition读取消息时，它会记录当前读取到的offset，这样，即使消费者崩溃或重启，它也可以从上次读取的位置继续读取，而不会重复读取或遗漏消息；（注意：消费者offset需要消费消息并提交后才记录offset）
+
+1、每个消费者组启动开始监听消息，默认从消息的最新的位置开始监听消息，即把最新的位置作为消费者offset；
+- 分区中还没有发送过消息，则最新的位置就是0；
+- 分区中已经发送过消息，则最新的位置就是生产者offset的下一个位置；
+
+
+2、消费者消费消息后，如果不提交确认（ack），则offset不更新，提交了才更新；
+
+命令行命令：./kafka-consumer-groups.sh --bootstrap-server 127.0.0.1:9092 --group osGroup --describe
+
+结论：消费者从什么位置开始消费，就看消费者的offset是多少，消费者offset是多少，它启动后，可以通过上面的命令查看；
+
+
+---
+
+# 查看消费者组的实时消费状态
+
+
+`kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group offsetGroup --describe` 是 Kafka 提供的用于查看指定消费者组详细状态的命令行工具。以下是对该命令的逐层解析：
+
+---
+
+### **一、命令作用**
+该命令用于查看名为 `offsetGroup` 的消费者组的实时消费状态，包括分区偏移量、消息积压量、消费者成员信息等核心指标。
+
+---
+
+### **二、参数说明**
+1. **`--bootstrap-server localhost:9092`**
+   - 指定 Kafka 集群的 Broker 地址列表，此处为本地单节点集群的默认端口（9092）。
+   - 替代旧版 `--zookeeper` 参数，直接通过 Broker 获取消费者组信息。
+
+2. **`--group offsetGroup`**
+   - 指定目标消费者组名称，仅显示该组的详细信息。
+
+3. **`--describe`**
+   - 输出消费者组的订阅详情，包括每个分区的消费进度、消息积压量等。
+
+---
+
+### **三、输出结果解析**
+执行命令后，输出的典型字段如下（以示例数据说明）：
+
+| **字段**          | **说明**                                                                                       | **示例值**                                |
+|--------------------|-----------------------------------------------------------------------------------------------|-------------------------------------------|
+| **TOPIC**          | 消费者订阅的主题名称                                                                           | `order-topic`                             |
+| **PARTITION**      | 分区编号（Kafka 并行处理的基本单位）                                                            | `0`                                       |
+| **CURRENT-OFFSET** | 消费者组当前已提交的偏移量（最后一条已消费消息的位置）                                         | `668`                                     |
+| **LOG-END-OFFSET** | 分区的日志末端偏移量（最新生产的消息位置）                                                     | `668`                                     |
+| **LAG**            | 积压消息数量（`LOG-END-OFFSET - CURRENT-OFFSET`，0 表示无积压）                               | `0`                                       |
+| **CONSUMER-ID**    | 消费者实例的唯一标识，格式为 `consumer-<clientId>-<UUID>`                                      | `consumer-1-063cdec2-b525-4ba3-bbfe...`   |
+| **HOST**           | 消费者实例所在的服务器 IP 地址                                                                 | `/192.168.0.2`                            |
+| **CLIENT-ID**      | 客户端自定义的标识符（由消费者启动时指定）                                                     | `consumer-1`                              |
+
+---
+
+### **四、关键场景应用**
+1. **监控消息积压**
+   - 若 `LAG` 值持续增长，可能因消费者处理速度不足或分区分配不均导致，需优化消费者线程池或扩容分区。
+2. **定位异常消费者**
+   - 通过 `CONSUMER-ID` 和 `HOST` 可追踪具体消费者实例的运行状态，排查宕机或性能瓶颈。
+3. **验证分区均衡性**
+   - 对比不同分区的 `LAG` 值，若差异过大，可能需调整分区数或消费者实例数量。
+
+---
+
+### **五、注意事项**
+- **消费者组状态**：若消费者组无活跃成员，输出中可能显示 `No active members`，需结合 `--state` 参数查看组状态（如 Stable、Dead）。
+- **权限要求**：需确保对 Kafka Broker 有读权限，否则可能因权限不足无法获取信息。
+- **版本兼容性**：Kafka 2.0+ 版本已弃用 ZooKeeper 参数，必须使用 `--bootstrap-server`。
+
+通过此命令，可快速诊断消费者组健康状态，为优化消息处理流程提供数据支持。如需进一步操作（如重置偏移量），可结合 `--reset-offsets` 参数实现。
+
+
+---
+
+
 

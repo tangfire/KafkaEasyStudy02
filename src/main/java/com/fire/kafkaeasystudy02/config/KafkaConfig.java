@@ -1,11 +1,8 @@
 package com.fire.kafkaeasystudy02.config;
 
-import com.fire.kafkaeasystudy02.interceptor.CustomerConsumerInterceptor;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.RoundRobinAssignor;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.RoundRobinPartitioner;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

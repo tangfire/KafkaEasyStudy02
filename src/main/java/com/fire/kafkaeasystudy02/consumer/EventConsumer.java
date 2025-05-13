@@ -4,8 +4,6 @@ import com.fire.kafkaeasystudy02.model.User;
 import com.fire.kafkaeasystudy02.util.JSONUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.annotation.PartitionOffset;
-import org.springframework.kafka.annotation.TopicPartition;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
@@ -156,6 +154,11 @@ public class EventConsumer {
     @KafkaListener(topics = {"myTopic"},groupId = "myGroup",concurrency = "3",containerFactory = "ourKafkaListenerContainerFactory")
     public void onEvent12(ConsumerRecord<String, String> record) {
         System.out.println( Thread.currentThread().getId()+ "->消息消费12，record" + record);
+    }
+
+    @KafkaListener(topics = {"offsetTopic"},groupId = "offsetGroup")
+    public void onEvent13(ConsumerRecord<String, String> record) {
+        System.out.println(Thread.currentThread().getId() + "->消息消费13,record" + record);
     }
 
 
