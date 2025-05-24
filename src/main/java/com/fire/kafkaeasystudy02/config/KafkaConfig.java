@@ -26,6 +26,13 @@ public class KafkaConfig {
         return new NewTopic("myTopic", 10, (short) 1);
     }
 
+    @Bean
+    public NewTopic clusterTopic(){
+        return new NewTopic("clustertopic", 3, (short) 3);
+    }
+
+
+
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 

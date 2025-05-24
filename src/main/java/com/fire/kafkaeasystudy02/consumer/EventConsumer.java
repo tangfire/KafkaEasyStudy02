@@ -162,5 +162,12 @@ public class EventConsumer {
     }
 
 
+    // 采用监听的方式接收事件(消息、数据)
+    @KafkaListener(topics = {"clustertopic"},groupId = "clustergroup")
+    public void onEvent01(String event) {
+        System.out.println("读取的事件："+event);
+    }
+
+
 
 }

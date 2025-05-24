@@ -4,7 +4,7 @@ spring:
     name: KafkaEasyStudy02
     # kafka????(ip+??)
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: localhost:9092,localhost:9093,localhost:9094
     # ?????
 #    producer:
 #      value-serializer: org.springframework.kafka.support.serializer.ToStringSerializer
